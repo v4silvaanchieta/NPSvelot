@@ -216,7 +216,7 @@
                     <button onclick="handlePrev()" ${isSubmitting ? 'disabled' : ''} class="p-2 rounded-full transition-colors ${!isSubmitting ? 'hover:bg-gray-100 text-gray-500' : 'text-gray-300 cursor-not-allowed'}" title="Voltar">
                         <i class="ph ph-caret-down transform rotate-90 text-2xl"></i>
                     </button>
-                    <button onclick="handleNext()" ${!isValid || isSubmitting ? 'disabled' : ''} class="p-2 rounded-full transition-colors ${isValid && !isSubmitting ? 'hover:bg-gray-100 text-gray-900' : 'text-gray-300'}" title="Avançar">
+                    <button onclick="handleNext(event)" ${!isValid || isSubmitting ? 'disabled' : ''} class="p-2 rounded-full transition-colors ${isValid && !isSubmitting ? 'hover:bg-gray-100 text-gray-900' : 'text-gray-300'}" title="Avançar">
                         <i class="ph ph-caret-down transform -rotate-90 text-2xl"></i>
                     </button>
                 `;
@@ -245,8 +245,12 @@
         function isCurrentStepValid() {
             if (state.currentStep === 0) return true;
             if (state.currentStep === 1) {
-                if (state.isAnonymous) return true;
-                return (state.answers.name || '').trim() !== '' && (state.answers.store || '').trim() !== '';
+                const isStoreSelected = (state.answers.store || '').trim() !== '';
+                if (state.isAnonymous) {
+                    return isStoreSelected; 
+                }
+                const isNameFilled = (state.answers.name || '').trim() !== '';
+                return isNameFilled && isStoreSelected;
             }
             if (state.currentStep > 1 && state.currentStep <= questions.length + 1) {
                 const q = questions[state.currentStep - 2];
@@ -277,14 +281,20 @@
             } else {
                 state.answers[qId] = optionValue;
             }
+            
+            // Bloqueia interações curtas para evitar ghost clicks no mobile (Garante foco correto)
+            if(window.innerWidth < 768) {
+                document.body.style.pointerEvents = 'none';
+                setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 400);
+            }
+            
             renderContent(); 
         }
 
         function toggleAnonymous() {
             state.isAnonymous = !state.isAnonymous;
-            if (!state.isAnonymous) {
+            if (state.isAnonymous) {
                 state.answers.name = '';
-                state.answers.store = '';
             }
             renderContent();
         }
@@ -294,6 +304,11 @@
             container.classList.remove('opacity-100', 'translate-y-0', 'scale-100');
             container.classList.add('opacity-0', 'translate-y-8', 'scale-95');
 
+            // Previne ghost clicks durante a transição inteira no mobile
+            if(window.innerWidth < 768) {
+                document.body.style.pointerEvents = 'none';
+            }
+
             setTimeout(() => {
                 state.currentStep = newStep;
                 updateProgress();
@@ -301,15 +316,14 @@
                 
                 container.innerHTML = getStepHTML();
                 
-                // Foco automático - APRIMORADO PARA MOBILE
+                // Foco automático exclusivo para Desktop
                 const inputs = container.querySelectorAll('input[type="text"], textarea');
                 if (inputs.length > 0 && state.currentStep > 1 && state.currentStep <= questions.length + 1) {
                      setTimeout(() => {
-                        // Verifica se é mobile (largura menor que 768px - Tailwind md breakpoint)
                         const isDesktop = window.innerWidth >= 768;
-                        // Impede o auto-focus nos campos de observação para não atrapalhar
                         const isObservationBox = inputs[0].placeholder && inputs[0].placeholder.includes('Quer detalhar');
                         
+                        // Foca APENAS no desktop e se não for a caixa de observação (garante que nada mudou no PC)
                         if(isDesktop && inputs[0].id !== 'other-input' && !isObservationBox) {
                             inputs[0].focus();
                         }
@@ -319,10 +333,16 @@
                 container.classList.remove('opacity-0', 'translate-y-8', 'scale-95');
                 container.classList.add('opacity-100', 'translate-y-0', 'scale-100');
                 updateNextButtons();
+
+                // Libera o touch no mobile
+                if(window.innerWidth < 768) {
+                    setTimeout(() => { document.body.style.pointerEvents = 'auto'; }, 400);
+                }
             }, 300);
         }
 
-        function handleNext() {
+        function handleNext(e) {
+            if (e && e.preventDefault) e.preventDefault(); // Evita double click acidental
             if (state.currentStep === questions.length + 1) {
                 submitDataToWebhook();
             } else if (state.currentStep < totalSteps) {
@@ -338,17 +358,17 @@
 
         async function submitDataToWebhook() {
             state.isSubmitting = true;
-            renderContent(); // Atualiza o botão para "Enviando..."
+            renderContent(); 
 
             const payload = {
                 timestamp: new Date().toISOString(),
                 anonimo: state.isAnonymous,
                 nome: state.isAnonymous ? 'Anônimo' : state.answers.name,
-                loja: state.isAnonymous ? 'Não identificada' : state.answers.store,
+                loja: state.answers.store, 
                 respostas: { ...state.answers }
             };
 
-            const WEBHOOK_URL = 'https://v4silvaanchieta.site/webhook/npsvelot';
+            const WEBHOOK_URL = 'https://v4silvaanchieta.site/webhook-test/npsvelot';
 
             try {
                 const response = await fetch(WEBHOOK_URL, {
@@ -389,7 +409,7 @@
 
             return `
                 <div class="mt-6 md:mt-8 flex flex-col md:flex-row items-center gap-4 flex-shrink-0 w-full md:w-auto pb-8 md:pb-0">
-                    <button id="main-next-btn" onclick="handleNext()" class="w-full md:w-auto flex items-center justify-center gap-2 font-bold py-3 md:py-3 px-6 md:px-8 rounded-lg text-lg transition-all bg-red-600 text-white">
+                    <button id="main-next-btn" onclick="handleNext(event)" class="w-full md:w-auto flex items-center justify-center gap-2 font-bold py-3 md:py-3 px-6 md:px-8 rounded-lg text-lg transition-all bg-red-600 text-white">
                         ${btnText} ${iconHTML}
                     </button>
                     
@@ -434,7 +454,7 @@
             }
 
             const isAnon = state.isAnonymous;
-            const disabledClass = isAnon ? 'opacity-30 pointer-events-none grayscale' : 'opacity-100';
+            const nameDisabledClass = isAnon ? 'opacity-40 pointer-events-none grayscale' : 'opacity-100';
 
             return `
                 <div class="flex flex-col justify-center h-full max-w-3xl mx-auto animate-fade-in-up w-full">
@@ -458,15 +478,15 @@
                                 <span class="text-lg font-bold text-gray-800 group-hover:text-red-600 transition-colors">
                                     Quero responder anonimamente
                                 </span>
-                                <span class="text-sm text-gray-500">
-                                    Os seus dados pessoais não serão registados. A sua sinceridade é o mais importante.
+                                <span class="text-sm text-gray-500 mt-1">
+                                    O seu nome não será registado, mas a seleção da loja continua a ser obrigatória para análise dos dados.
                                 </span>
                             </div>
                         </label>
                     </div>
 
-                    <div class="space-y-4 md:space-y-6 transition-all duration-500 ${disabledClass}">
-                        <div>
+                    <div class="space-y-4 md:space-y-6">
+                        <div class="transition-all duration-500 ${nameDisabledClass}">
                             <label class="flex items-center gap-2 text-lg font-medium text-gray-700 mb-2">
                                 <i class="ph ph-user text-xl ${isAnon ? 'text-gray-400' : 'text-red-600'}"></i>
                                 Qual o seu nome?
@@ -475,17 +495,17 @@
                                 value="${state.answers.name || ''}" 
                                 oninput="handleTextChange('name', this.value)" 
                                 ${isAnon ? 'disabled' : ''} 
-                                class="w-full p-3 md:p-4 rounded-xl border-2 border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-100 transition-all outline-none text-lg text-gray-900 bg-white disabled:bg-gray-100">
+                                class="w-full p-3 md:p-4 rounded-xl border-2 border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-100 transition-all outline-none text-[16px] md:text-lg text-gray-900 bg-white disabled:bg-gray-100">
                         </div>
 
                         <div>
                             <label class="flex items-center gap-2 text-lg font-medium text-gray-700 mb-2">
-                                <i class="ph ph-map-pin text-xl ${isAnon ? 'text-gray-400' : 'text-red-600'}"></i>
+                                <i class="ph ph-map-pin text-xl text-red-600"></i>
                                 Selecione a sua loja parceira:
                             </label>
                             <div class="relative">
-                                <select onchange="handleTextChange('store', this.value)" ${isAnon ? 'disabled' : ''} 
-                                    class="w-full p-3 md:p-4 rounded-xl border-2 border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-100 transition-all outline-none text-lg text-gray-900 bg-white appearance-none cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed">
+                                <select onchange="handleTextChange('store', this.value)" 
+                                    class="w-full p-3 md:p-4 rounded-xl border-2 border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-100 transition-all outline-none text-[16px] md:text-lg text-gray-900 bg-white appearance-none cursor-pointer">
                                     ${optionsHTML}
                                 </select>
                                 <div class="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400">
@@ -540,7 +560,7 @@
                                 <input id="other-input" type="text" placeholder="Especifique o motivo..." 
                                     value="${state.otherText}" 
                                     oninput="handleOtherTextChange('${q.id}', this.value)" 
-                                    class="w-full p-3 md:p-4 border-b-2 border-red-600 bg-transparent focus:outline-none text-base md:text-lg text-gray-900">
+                                    class="w-full p-3 md:p-4 border-b-2 border-red-600 bg-transparent focus:outline-none text-[16px] md:text-lg text-gray-900">
                             </div>
                         `;
                     }
@@ -552,7 +572,7 @@
                     <div class="w-full h-full">
                         <textarea rows="5" placeholder="Digite o seu feedback aqui..." 
                             oninput="handleTextChange('${q.id}', this.value)" 
-                            class="w-full p-4 md:p-5 rounded-xl border-2 border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-100 transition-all outline-none text-base md:text-lg text-gray-900 resize-none bg-gray-50 focus:bg-white shadow-inner">${answer || ''}</textarea>
+                            class="w-full p-4 md:p-5 rounded-xl border-2 border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-100 transition-all outline-none text-[16px] md:text-lg text-gray-900 resize-none bg-gray-50 focus:bg-white shadow-inner">${answer || ''}</textarea>
                     </div>
                 `;
             }
@@ -561,18 +581,18 @@
             if (q.type !== 'text') {
                 observationHTML = `
                     <div class="mt-4 md:mt-6 w-full flex-shrink-0 bg-gray-50 border border-gray-100 rounded-xl p-3 md:p-4">
-                        <label class="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">
+                        <label class="flex items-center gap-2 text-[15px] md:text-sm font-semibold text-gray-600 mb-2">
                             <i class="ph ph-chat-circle-text text-base"></i> Observações de melhoria (Opcional)
                         </label>
                         <textarea rows="2" placeholder="Quer detalhar a sua resposta ou sugerir algo? Escreva aqui..." 
                             oninput="handleTextChange('${q.id}_obs', this.value)" 
-                            class="w-full p-2 md:p-3 rounded-lg border border-gray-200 focus:border-red-400 focus:ring-2 focus:ring-red-50 transition-all outline-none text-sm md:text-base text-gray-800 resize-none bg-white">${observation}</textarea>
+                            class="w-full p-3 md:p-3 rounded-lg border border-gray-200 focus:border-red-400 focus:ring-2 focus:ring-red-50 transition-all outline-none text-[16px] md:text-sm text-gray-800 resize-none bg-white">${observation}</textarea>
                     </div>
                 `;
             }
 
             return `
-                <div class="flex flex-col justify-start pt-4 md:pt-10 h-full max-w-3xl mx-auto animate-fade-in-up w-full overflow-y-auto pb-32 md:pb-20 no-scrollbar">
+                <div class="flex flex-col justify-start pt-4 md:pt-10 h-full max-w-3xl mx-auto animate-fade-in-up w-full overflow-y-auto pb-40 md:pb-20 no-scrollbar">
                     <div class="text-xs md:text-sm font-semibold text-red-600 uppercase tracking-wider mb-2 md:mb-4 flex items-center gap-2 flex-shrink-0">
                         <span>${state.currentStep - 1} de ${questions.length}</span>
                         <span class="w-1 h-1 bg-red-600 rounded-full"></span>
@@ -596,20 +616,21 @@
         }
 
         function getOutroHTML() {
+            const storeName = state.answers.store ? state.answers.store.split(' - ')[0] : '';
             let message = '';
+            
             if (state.isAnonymous) {
                 message = `
                     <div class="flex flex-col items-center gap-3">
                         <i class="ph ph-shield-check text-4xl text-gray-400"></i>
                         <p class="text-lg md:text-xl text-gray-600 leading-relaxed">
                             Muito obrigado pela transparência! <br/>
-                            Os seus feedbacks anónimos foram registados de forma segura e vão direto para a nossa equipa de tecnologia.
+                            Os seus feedbacks anónimos da unidade de <strong>${storeName}</strong> foram registados de forma segura e vão direto para a nossa equipa de tecnologia.
                         </p>
                     </div>
                 `;
             } else {
                 const firstName = state.answers.name ? state.answers.name.split(' ')[0] : '';
-                const storeName = state.answers.store ? state.answers.store.split(' - ')[0] : '';
                 message = `
                     <p class="text-lg md:text-xl text-gray-600 leading-relaxed">
                         Muito obrigado pela transparência, <strong>${firstName}</strong>! <br/>
