@@ -1,0 +1,641 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { ChevronRight, Check, ChevronDown, User, MapPin, MessageSquare, ShieldCheck, Loader2 } from 'lucide-react';
+
+const storesByState = {
+  "Paraná": [
+    "Curitiba", "Araucária", "São Jose dos pinhais", "Campo largo", "Fazenda Rio grande", 
+    "Ponta grossa", "Telemaco Borba", "Arapoti", "Cornelio Procópio", "Ibipora", 
+    "Londrina", "Apucarana", "Rolandia", "Paranavai", "Umuarama", "Toledo", 
+    "Cascavel", "Maringa", "Campo mourao", "Cianorte", "Arapongas"
+  ],
+  "São Paulo": [
+    "Itapetininga", "Indaiatuba", "Bragança Paulista", "Leme", "Dois corregos", 
+    "Descalvado", "Jundiai", "Fernandopolis", "Votuporanga", "Marilia", "Guarulhos", 
+    "Campinas", "Americana", "Santa barbara do oeste", "Presidente Prudente", 
+    "São jose do rio preto", "São bernardo dos campo", "Sao jose dos campos", 
+    "Piracicaba", "Araraquara", "Bauru", "Sorocaba"
+  ],
+  "Rio Grande do Sul": [
+    "Farroupilha", "Caxias do sul", "Sapucaia do sul", "São Leopoldo", 
+    "Novo Hamburgo", "Camaqua", "Porto Alegre"
+  ],
+  "Rio de Janeiro": [
+    "Barra mansa", "Resende"
+  ]
+};
+
+const questions = [
+  {
+    id: 'q1',
+    pillar: 'Engajamento e Rotina',
+    title: 'Com que frequência você ou sua equipe mantêm o painel do CRM aberto durante o horário comercial?',
+    type: 'radio',
+    options: [
+      'O dia todo. Fica aberto em uma aba fixa.',
+      'Algumas vezes ao dia, apenas para checar os contatos novos.',
+      'Raramente. Entro apenas quando sou cobrado ou lembrado.',
+      'Ainda não acessei ou quase nunca acesso.'
+    ]
+  },
+  {
+    id: 'q2',
+    pillar: 'Engajamento e Rotina',
+    title: 'Sobre a atualização do status dos clientes (mover os cards no funil), como é a sua rotina hoje?',
+    type: 'radio',
+    options: [
+      'Atualizo em tempo real, assim que falo com o cliente.',
+      'Atualizo tudo de uma vez, no final do dia ou no dia seguinte.',
+      'Deixo acumular e atualizo apenas uma vez por semana.',
+      'Esqueço de atualizar e os contatos acabam parados.'
+    ]
+  },
+  {
+    id: 'q3',
+    pillar: 'Usabilidade',
+    title: 'Quão fácil ou difícil é encontrar as informações e as métricas que você precisa dentro do CRM?',
+    type: 'scale',
+    options: [
+      '1 - Muito difícil (Confuso e perco muito tempo)',
+      '2 - Difícil',
+      '3 - Neutro (Normal)',
+      '4 - Fácil',
+      '5 - Muito fácil (Intuitivo e rápido)'
+    ]
+  },
+  {
+    id: 'q4',
+    pillar: 'Usabilidade',
+    title: 'Em relação à velocidade e estabilidade, como você avalia o sistema no dia a dia?',
+    type: 'radio',
+    options: [
+      'Rápido e sem travamentos.',
+      'Lento de vez em quando, mas não atrapalha.',
+      'Trava muito e atrasa o meu atendimento.',
+      'Tenho problemas frequentes para fazer login ou carregar páginas.'
+    ]
+  },
+  {
+    id: 'q5',
+    pillar: 'Atrito Operacional',
+    title: 'Pensando no esforço diário, o quanto você concorda com a frase: "O CRM da Velot tornou o meu processo de vendas muito mais fácil"?',
+    type: 'scale',
+    options: [
+      '1 - Discordo totalmente (Dá mais trabalho que ajuda)',
+      '2 - Discordo em parte',
+      '3 - Neutro (Não atrapalha, mas ainda não ajudou muito)',
+      '4 - Concordo em parte',
+      '5 - Concordo totalmente (Facilitou muito minha vida)'
+    ]
+  },
+  {
+    id: 'q6',
+    pillar: 'Atrito Operacional',
+    title: 'Sendo muito sincero: hoje, qual é a MAIOR barreira que impede você de usar o CRM em 100% dos seus atendimentos?',
+    type: 'radio_with_other',
+    options: [
+      'Retrabalho: Ter que preencher dados no CRM e depois fazer tudo de novo na Intranet/Apolo.',
+      'Excesso de cliques: Exige muitos passos para uma ação simples.',
+      'Tempo: O balcão é muito dinâmico e não tenho tempo de abrir o sistema.',
+      'Ainda não entendi totalmente como funciona a ferramenta.',
+      'Outro (Especificar)'
+    ]
+  },
+  {
+    id: 'q7',
+    pillar: 'Treinamento e Suporte',
+    title: 'Como você avalia a comunicação e os treinamentos fornecidos até o momento sobre o uso do CRM?',
+    type: 'scale',
+    options: [
+      '1 - Insuficiente (Ainda tenho muitas dúvidas)',
+      '2 - Ruim',
+      '3 - Regular (Deu para pegar o básico)',
+      '4 - Bom',
+      '5 - Excelente (Ficou tudo muito claro)'
+    ]
+  },
+  {
+    id: 'q8',
+    pillar: 'Evolução (Aberta)',
+    title: 'Pensando em fechar mais negócios: O que está FALTANDO no CRM hoje para que ele seja sua principal arma de vendas?',
+    description: 'Ex: Integração direta de crédito, avisos de retorno, etc.',
+    type: 'text'
+  },
+  {
+    id: 'q9',
+    pillar: 'Evolução (Aberta)',
+    title: 'Se você fosse o desenvolvedor do sistema por um dia e pudesse alterar ou REMOVER uma única coisa na tela do funil, o que seria?',
+    type: 'text'
+  },
+  {
+    id: 'q10',
+    pillar: 'Feedback Livre (Aberta)',
+    title: 'Espaço aberto: Compartilhe conosco qualquer outro feedback, crítica ou sugestão de melhoria.',
+    description: 'Sua opinião é fundamental para evoluirmos a ferramenta para você.',
+    type: 'text'
+  }
+];
+
+export default function App() {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const [otherText, setOtherText] = useState('');
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const inputRef = useRef(null);
+
+  const totalSteps = questions.length + 2; 
+  const progress = ((currentStep) / totalSteps) * 100;
+  
+  const logoUrl = "https://github.com/v4silvaanchieta/NPSvelot/blob/main/Color1.pdf.png?raw=true";
+
+  useEffect(() => {
+    if (currentStep > 1 && currentStep <= questions.length + 1) {
+      const q = questions[currentStep - 2];
+      if (q.type === 'text' && inputRef.current) {
+        setTimeout(() => inputRef.current.focus(), 300);
+      }
+    }
+  }, [currentStep]);
+
+  const submitDataToWebhook = async () => {
+    setIsSubmitting(true);
+
+    // Estruturação do Payload que será enviado ao seu n8n/Make/Zapier
+    const payload = {
+      timestamp: new Date().toISOString(),
+      anonimo: isAnonymous,
+      nome: isAnonymous ? 'Anônimo' : answers.name,
+      loja: isAnonymous ? 'Não identificada' : answers.store,
+      respostas: { ...answers }
+    };
+
+    // Cole aqui a URL do seu Webhook (n8n, Make, Formspree, etc.)
+    const WEBHOOK_URL = 'https://v4silvaanchieta.site/webhook-test/npsvelot';
+
+    try {
+      // Enviando os dados para o Webhook
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!response.ok) throw new Error('Falha ao enviar os dados');
+
+      // Avança para a tela final de agradecimento
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentStep(prev => prev + 1);
+        setIsTransitioning(false);
+      }, 300);
+
+    } catch (error) {
+      console.error("Erro ao enviar respostas:", error);
+      alert("Houve um erro ao enviar suas respostas. Por favor, tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentStep === questions.length + 1) {
+      // Se for a última etapa, dispara o envio de dados
+      submitDataToWebhook();
+    } else if (currentStep < totalSteps) {
+      // Caso contrário, apenas avança a página
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentStep(prev => prev + 1);
+        setIsTransitioning(false);
+      }, 300);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentStep > 0 && !isSubmitting) {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentStep(prev => prev - 1);
+        setIsTransitioning(false);
+      }, 300);
+    }
+  };
+
+  const handleOptionSelect = (questionId, optionValue) => {
+    setAnswers(prev => ({ ...prev, [questionId]: optionValue }));
+  };
+
+  const handleTextChange = (field, text) => {
+    setAnswers(prev => ({ ...prev, [field]: text }));
+  };
+
+  const toggleAnonymous = () => {
+    setIsAnonymous(!isAnonymous);
+    if (!isAnonymous) {
+      setAnswers(prev => ({ ...prev, name: '', store: '' }));
+    }
+  };
+
+  const isCurrentStepValid = () => {
+    if (currentStep === 0) return true;
+    if (currentStep === 1) {
+      if (isAnonymous) return true;
+      return answers.name?.trim() && answers.store?.trim();
+    }
+    if (currentStep > 1 && currentStep <= questions.length + 1) {
+      const q = questions[currentStep - 2];
+      const answer = answers[q.id];
+      
+      if (!answer) return false;
+      if (q.type === 'radio_with_other' && answer.startsWith('Outro') && otherText.trim() === '') return false;
+      return true;
+    }
+    return true;
+  };
+
+  const renderIntro = () => (
+    <div className="flex flex-col items-start justify-center h-full max-w-3xl mx-auto space-y-6 animate-fade-in-up">
+      <img src={logoUrl} alt="Velot Motors" className="h-16 md:h-20 object-contain mb-2" />
+      
+      <div className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2">
+        A Voz do Lojista
+      </div>
+      <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight">
+        Pesquisa de Usabilidade e Evolução: <span className="text-red-600">CRM</span>
+      </h1>
+      <p className="text-lg md:text-xl text-gray-600 leading-relaxed">
+        Olá, Parceiro Velot! <br/><br/>
+        O nosso CRM nasceu para ser um <strong>organismo vivo</strong>. Para garantirmos que a ferramenta facilite a sua vida e aumente suas vendas, precisamos entender exatamente a sua experiência atual e mapear o que precisa melhorar.
+      </p>
+      <p className="text-md text-gray-500 bg-gray-50 p-4 rounded-lg border border-gray-100 w-full">
+        ⏱️ Levará menos de 3 minutos. Suas respostas, feedbacks e observações vão ditar as próximas atualizações da plataforma!
+      </p>
+      <button 
+        onClick={handleNext}
+        className="mt-8 flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-lg text-lg transition-all transform hover:scale-105 shadow-lg hover:shadow-red-600/30"
+      >
+        Começar a Pesquisa <ChevronRight size={24} />
+      </button>
+      <div className="flex items-center gap-2 text-sm text-gray-400 mt-4">
+        Pressione <kbd className="bg-gray-100 border border-gray-300 rounded px-2 py-1 font-mono font-bold text-gray-600">Enter</kbd> para começar
+      </div>
+    </div>
+  );
+
+  const renderIdentification = () => (
+    <div className="flex flex-col justify-center h-full max-w-3xl mx-auto animate-fade-in-up w-full">
+      <div className="text-sm font-semibold text-red-600 uppercase tracking-wider mb-4 flex items-center gap-2">
+        <span>Identificação</span>
+      </div>
+      
+      <h2 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight mb-8">
+        Antes de começarmos, conte pra gente quem você é:
+      </h2>
+
+      <div className="mb-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
+        <label className="flex items-center cursor-pointer group">
+          <div className="relative flex items-center">
+            <input 
+              type="checkbox" 
+              className="peer sr-only" 
+              checked={isAnonymous}
+              onChange={toggleAnonymous}
+            />
+            <div className="w-6 h-6 bg-white border-2 border-gray-300 rounded-md peer-checked:bg-red-600 peer-checked:border-red-600 transition-colors flex items-center justify-center">
+              {isAnonymous && <Check size={16} className="text-white" />}
+            </div>
+          </div>
+          <div className="ml-4 flex flex-col">
+            <span className="text-lg font-bold text-gray-800 group-hover:text-red-600 transition-colors">
+              Quero responder anonimamente
+            </span>
+            <span className="text-sm text-gray-500">
+              Seus dados pessoais não serão registrados. A sua sinceridade é o mais importante.
+            </span>
+          </div>
+        </label>
+      </div>
+
+      <div className={`space-y-6 transition-all duration-500 ${isAnonymous ? 'opacity-30 pointer-events-none grayscale' : 'opacity-100'}`}>
+        <div>
+          <label className="flex items-center gap-2 text-lg font-medium text-gray-700 mb-2">
+            <User size={20} className={isAnonymous ? 'text-gray-400' : 'text-red-600'} />
+            Qual o seu nome?
+          </label>
+          <input
+            type="text"
+            placeholder="Digite seu nome ou da sua equipe..."
+            value={answers.name || ''}
+            onChange={(e) => handleTextChange('name', e.target.value)}
+            disabled={isAnonymous}
+            className="w-full p-4 rounded-xl border-2 border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-100 transition-all outline-none text-lg text-gray-900 bg-white disabled:bg-gray-100"
+            autoFocus={!isAnonymous}
+          />
+        </div>
+
+        <div>
+          <label className="flex items-center gap-2 text-lg font-medium text-gray-700 mb-2">
+            <MapPin size={20} className={isAnonymous ? 'text-gray-400' : 'text-red-600'} />
+            Selecione a sua loja parceira:
+          </label>
+          <div className="relative">
+            <select
+              value={answers.store || ''}
+              onChange={(e) => handleTextChange('store', e.target.value)}
+              disabled={isAnonymous}
+              className="w-full p-4 rounded-xl border-2 border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-100 transition-all outline-none text-lg text-gray-900 bg-white appearance-none cursor-pointer disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="" disabled>Selecione uma cidade...</option>
+              {Object.entries(storesByState).map(([state, cities]) => (
+                <optgroup key={state} label={state}>
+                  {cities.map(city => (
+                    <option key={city} value={`${city} - ${state}`}>{city}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none text-gray-400">
+              <ChevronDown size={24} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-10 flex items-center gap-4">
+        <button
+          onClick={handleNext}
+          disabled={!isCurrentStepValid()}
+          className={`flex items-center gap-2 font-bold py-3 px-8 rounded-lg text-lg transition-all
+            ${isCurrentStepValid() 
+              ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-600/30' 
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+        >
+          Avançar <ChevronRight size={20} />
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderOutro = () => (
+    <div className="flex flex-col items-center text-center justify-center h-full max-w-2xl mx-auto space-y-6 animate-fade-in-up">
+      <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
+        <Check size={40} className="text-green-600" />
+      </div>
+      <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight">
+        Respostas enviadas com sucesso!
+      </h1>
+      
+      {isAnonymous ? (
+        <div className="flex flex-col items-center gap-3">
+          <ShieldCheck size={32} className="text-gray-400" />
+          <p className="text-xl text-gray-600 leading-relaxed">
+            Muito obrigado pela transparência! <br/>
+            Seus feedbacks anônimos foram registrados de forma segura e vão direto para a nossa equipe de tecnologia.
+          </p>
+        </div>
+      ) : (
+        <p className="text-xl text-gray-600 leading-relaxed">
+          Muito obrigado pela transparência, <strong>{answers.name?.split(' ')[0]}</strong>! <br/>
+          Os seus feedbacks da unidade de <strong>{answers.store?.split(' - ')[0]}</strong> vão direto para a nossa equipe de tecnologia.
+        </p>
+      )}
+
+      <h2 className="text-2xl font-bold text-red-600 mt-4">Juntos somos mais fortes. Boas vendas!</h2>
+      
+      <button 
+        onClick={() => window.location.reload()}
+        className="mt-8 text-gray-500 hover:text-gray-800 underline transition-colors"
+      >
+        Voltar ao início
+      </button>
+    </div>
+  );
+
+  const renderQuestion = () => {
+    const q = questions[currentStep - 2];
+    const answer = answers[q.id];
+    const observation = answers[`${q.id}_obs`] || '';
+
+    return (
+      <div className="flex flex-col justify-start pt-10 h-full max-w-3xl mx-auto animate-fade-in-up w-full overflow-y-auto pb-20 no-scrollbar">
+        <div className="text-sm font-semibold text-red-600 uppercase tracking-wider mb-4 flex items-center gap-2 flex-shrink-0">
+          <span>{currentStep - 1} de {questions.length}</span>
+          <span className="w-1 h-1 bg-red-600 rounded-full"></span>
+          <span>{q.pillar}</span>
+        </div>
+        
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight mb-2 flex-shrink-0">
+          {q.title}
+        </h2>
+        
+        {q.description && (
+          <p className="text-lg text-gray-500 mb-6 italic flex-shrink-0">
+            {q.description}
+          </p>
+        )}
+
+        <div className="mt-6 space-y-3 w-full flex-shrink-0">
+          {q.type === 'radio' || q.type === 'scale' ? (
+            q.options.map((opt, idx) => {
+              const isSelected = answer === opt;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => handleOptionSelect(q.id, opt)}
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center group
+                    ${isSelected 
+                      ? 'border-red-600 bg-red-50 shadow-sm' 
+                      : 'border-gray-200 hover:border-red-300 hover:bg-gray-50'}`}
+                >
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-4 flex-shrink-0 transition-colors
+                    ${isSelected ? 'border-red-600' : 'border-gray-300 group-hover:border-red-400'}`}>
+                    {isSelected && <div className="w-3 h-3 bg-red-600 rounded-full" />}
+                  </div>
+                  <span className={`text-lg ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-700'}`}>
+                    {opt}
+                  </span>
+                </button>
+              );
+            })
+          ) : q.type === 'radio_with_other' ? (
+            <div className="space-y-3">
+              {q.options.map((opt, idx) => {
+                const isOther = opt.startsWith('Outro');
+                const isSelected = answer === opt || (isOther && answer?.startsWith('Outro'));
+                
+                return (
+                  <div key={idx} className="flex flex-col">
+                    <button
+                      onClick={() => handleOptionSelect(q.id, isOther ? `Outro: ${otherText}` : opt)}
+                      className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-center group
+                        ${isSelected ? 'border-red-600 bg-red-50 shadow-sm' : 'border-gray-200 hover:border-red-300 hover:bg-gray-50'}`}
+                    >
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center mr-4 flex-shrink-0 transition-colors
+                        ${isSelected ? 'border-red-600' : 'border-gray-300 group-hover:border-red-400'}`}>
+                        {isSelected && <div className="w-3 h-3 bg-red-600 rounded-full" />}
+                      </div>
+                      <span className={`text-lg ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-700'}`}>
+                        {opt}
+                      </span>
+                    </button>
+                    
+                    {isOther && isSelected && (
+                      <div className="mt-3 ml-10 animate-fade-in-up">
+                        <input
+                          ref={inputRef}
+                          type="text"
+                          placeholder="Especifique o motivo..."
+                          value={otherText}
+                          onChange={(e) => {
+                            setOtherText(e.target.value);
+                            handleTextChange(q.id, `Outro: ${e.target.value}`);
+                          }}
+                          className="w-full p-4 border-b-2 border-red-600 bg-transparent focus:outline-none text-lg text-gray-900"
+                          autoFocus
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : q.type === 'text' ? (
+            <div className="w-full h-full">
+              <textarea
+                ref={inputRef}
+                rows={6}
+                placeholder="Digite seu feedback aqui..."
+                value={answer || ''}
+                onChange={(e) => handleTextChange(q.id, e.target.value)}
+                className="w-full p-5 rounded-xl border-2 border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-100 transition-all outline-none text-lg text-gray-900 resize-none bg-gray-50 focus:bg-white shadow-inner"
+              />
+            </div>
+          ) : null}
+        </div>
+
+        {q.type !== 'text' && (
+          <div className="mt-6 w-full flex-shrink-0 bg-gray-50 border border-gray-100 rounded-xl p-4">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 mb-2">
+              <MessageSquare size={16} /> Observações de melhoria (Opcional)
+            </label>
+            <textarea
+              rows={2}
+              placeholder="Quer detalhar sua resposta ou sugerir algo? Escreva aqui..."
+              value={observation}
+              onChange={(e) => handleTextChange(`${q.id}_obs`, e.target.value)}
+              className="w-full p-3 rounded-lg border border-gray-200 focus:border-red-400 focus:ring-2 focus:ring-red-50 transition-all outline-none text-base text-gray-800 resize-none bg-white"
+            />
+          </div>
+        )}
+
+        <div className="mt-8 flex items-center gap-4 flex-shrink-0">
+          <button
+            onClick={handleNext}
+            disabled={!isCurrentStepValid() || isSubmitting}
+            className={`flex items-center gap-2 font-bold py-3 px-8 rounded-lg text-lg transition-all
+              ${isCurrentStepValid() && !isSubmitting
+                ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-600/30' 
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+          >
+            {isSubmitting ? (
+              <>Enviando... <Loader2 size={20} className="animate-spin" /></>
+            ) : currentStep === questions.length + 1 ? (
+              <>Finalizar Pesquisa <Check size={20} /></>
+            ) : (
+              <>OK <Check size={20} /></>
+            )}
+          </button>
+          
+          <div className="text-sm text-gray-400 flex items-center gap-2">
+            Pressione <kbd className="bg-gray-100 border border-gray-300 rounded px-2 py-1 font-mono font-bold text-gray-600">Enter</kbd>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        if (isCurrentStepValid() && document.activeElement.tagName !== 'TEXTAREA' && !isSubmitting) {
+          e.preventDefault();
+          handleNext();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentStep, answers, otherText, isAnonymous, isSubmitting]);
+
+  return (
+    <div className="h-screen w-full bg-white text-gray-900 font-sans selection:bg-red-200 selection:text-red-900 flex flex-col overflow-hidden">
+      
+      <header className="fixed top-0 w-full bg-white/90 backdrop-blur-md z-50 shadow-sm border-b border-gray-100">
+        <div className="h-1.5 w-full bg-gray-100">
+          <div 
+            className="h-full bg-red-600 transition-all duration-500 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="max-w-5xl mx-auto px-6 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <img src={logoUrl} alt="Velot Motors" className="h-8 md:h-10 object-contain" />
+          </div>
+          {currentStep > 0 && currentStep <= questions.length + 1 && (
+            <div className="flex gap-2">
+              <button 
+                onClick={handlePrev}
+                disabled={isSubmitting}
+                className={`p-2 rounded-full transition-colors ${!isSubmitting ? 'hover:bg-gray-100 text-gray-500' : 'text-gray-300 cursor-not-allowed'}`}
+                title="Voltar"
+              >
+                <ChevronDown size={24} className="transform rotate-90" />
+              </button>
+              <button 
+                onClick={handleNext}
+                disabled={!isCurrentStepValid() || isSubmitting}
+                className={`p-2 rounded-full transition-colors ${isCurrentStepValid() && !isSubmitting ? 'hover:bg-gray-100 text-gray-900' : 'text-gray-300'}`}
+                title="Avançar"
+              >
+                <ChevronDown size={24} className="transform -rotate-90" />
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      <main className="flex-grow flex items-center justify-center px-4 md:px-6 pt-20 overflow-hidden h-full">
+        <div 
+          className={`w-full h-full transition-all duration-500 ease-in-out transform ${
+            isTransitioning ? 'opacity-0 translate-y-8 scale-95' : 'opacity-100 translate-y-0 scale-100'
+          }`}
+        >
+          {currentStep === 0 && renderIntro()}
+          {currentStep === 1 && renderIdentification()}
+          {currentStep > 1 && currentStep <= questions.length + 1 && renderQuestion()}
+          {currentStep > questions.length + 1 && renderOutro()}
+        </div>
+      </main>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}} />
+    </div>
+  );
+}
